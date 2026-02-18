@@ -11,30 +11,34 @@
       height: 100vh;
       overflow: hidden;
       display: flex;
-      justify-content: center;
-      align-items: flex-end;
-      touch-action: manipulation;
+      justify-content: center; /* Center horizontally */
+      align-items: center;     /* Center vertically */
+      touch-action: manipulation; /* Improves touch response */
     }
 
     #recordBtn {
       background: none;
       border: none;
-      font-size: 60px;
+      font-size: 60px; /* Approx 1cm - 1.5cm depending on screen density */
       cursor: pointer;
-      margin-bottom: 30px;
-      padding: 20px;
+      margin-bottom: 0; /* No bottom offset since it's centered now */
+      padding: 20px; /* larger touch target */
       line-height: 1;
       user-select: none;
       -webkit-tap-highlight-color: transparent;
       outline: none;
     }
 
-    video { display: none; }
+    /* Hide the video element but keep it in DOM so it functions */
+    video {
+      display: none;
+    }
   </style>
 </head>
 <body>
 
   <video id="preview" muted playsinline></video>
+
   <button id="recordBtn" aria-label="Record">⚫️</button>
 
   <script>
@@ -63,11 +67,15 @@
           fileExt = 'webm';
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      // leave defaults
+    }
 
     btn.addEventListener('click', async () => {
       if (!isRecording) {
+        // START RECORDING
         try {
+          // Request rear camera
           stream = await navigator.mediaDevices.getUserMedia({
             audio: true,
             video: { facingMode: "environment" }
@@ -79,39 +87,58 @@
           mediaRecorder = new MediaRecorder(stream, options);
 
           mediaRecorder.ondataavailable = (event) => {
-            if (event.data && event.data.size > 0) recordedChunks.push(event.data);
+            if (event.data && event.data.size > 0) {
+              recordedChunks.push(event.data);
+            }
           };
 
           mediaRecorder.onstop = saveVideo;
 
           mediaRecorder.start();
           isRecording = true;
+
+          // Update UI
           btn.innerHTML = "🔵";
+
         } catch (err) {
           console.error("Error accessing camera:", err);
           alert("Error: Could not access camera/mic. Please ensure permissions are allowed and you are using HTTPS (e.g., GitHub Pages).");
         }
+
       } else {
+        // STOP RECORDING
         try {
-          if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+          if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+          }
         } finally {
+          // Stop the camera stream to turn off the hardware camera light (if any)
           if (stream) stream.getTracks().forEach(track => track.stop());
           isRecording = false;
+
+          // Update UI
           btn.innerHTML = "⚫️";
         }
       }
     });
 
     function saveVideo() {
-      const blob = new Blob(recordedChunks, { type: chosenMime.includes('codecs') ? 'video/webm' : chosenMime });
-      recordedChunks = [];
+      // Use the same MIME type we recorded with
+      const blob = new Blob(
+        recordedChunks,
+        { type: chosenMime.includes('codecs') ? 'video/webm' : chosenMime }
+      );
+      recordedChunks = []; // Reset for next time
 
+      // Create a URL for the blob
       const url = URL.createObjectURL(blob);
 
+      // Create a temporary link to trigger download
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = url;
 
+      // Generate a timestamped filename
       const date = new Date();
       const filename = `recording_${date.getTime()}.${fileExt}`;
       a.download = filename;
@@ -119,9 +146,10 @@
       document.body.appendChild(a);
       a.click();
 
+      // Cleanup
       setTimeout(() => {
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        window.URL.revokeObjectURL(url);
       }, 200);
     }
   </script>
